@@ -10,7 +10,8 @@
   * the allocated and freed memory, and able to perform memory allocation, deallocation, and resizing.
   *	@author Attila Vajay
   *	@email vajay.attila@gmail.com
-  * @date 2023.03.23.
+  * @git https://github.com/vajayattila/AnsiCMemTrack.git
+  * @date 2023.03.23.-2023.03.24.
   * @version 1.0
   * @license MIT License
   * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
@@ -64,6 +65,8 @@ typedef struct {
     size_t memory_usage; /**< Memory usage (excluding overhead). */
     size_t total_freed_memory; /**< Total amount of memory freed so far. */
     bool is_initialized;        /**< The initialization status of the memory tracker. */
+    MemoryBlock** get_unfreed_blocks_info_ptr; /**< A pointer to the array of MemoryBlock pointers representing the unfreed memory blocks */
+    size_t get_unfreed_blocks_info_size; /**< Number items in unfreed blocks info array */
 } MemoryInfo;
 
 /**
@@ -183,5 +186,57 @@ void ansi_c_mem_track_cleanup_allocations(void);
  * @return The generated object_id.
  */
 size_t ansi_c_mem_track_get_next_object_id(void);
+
+/*@brief Get information about a memory block with the given pointer.
+*
+* @param ptr A pointer to the memory block.
+*
+* @return A pointer to a const MemoryBlock struct with information about the memory block, or NULL if not found.
+*/
+const MemoryBlock* ansi_c_mem_track_get_block_info(const void* ptr);
+
+/**
+ * @brief Logs information about the given memory block.
+ *
+ * @param file_name The name of the log file, or NULL to log to standard output.
+ * @param block A pointer to the memory block to log.
+ *
+ * @return true if logging was successful, false otherwise.
+ */
+bool ansi_c_mem_track_log_block_info(const char* file_name, const MemoryBlock* block);
+
+/**
+ * @brief Gets an array of pointers to unfreed memory blocks.
+ *
+ * The returned array and the memory it points to are dynamically allocated
+ * and should be freed by calling this function again or by calling
+ * `ansi_c_mem_track_deinit`. The returned array must be treated as
+ * read-only, and its contents should not be modified or freed.
+ *
+ * @param count A pointer to a size_t variable that will receive the number of
+ * unfreed blocks. If there was an error, this will be set to 0.
+ *
+ * @return An array of pointers to unfreed memory blocks, or NULL if there was an
+ * error. The returned array and the memory it points to are dynamically
+ * allocated and should be freed by calling this function again or by calling
+ * `ansi_c_mem_track_deinit` or recalling `ansi_c_mem_track_get_unfreed_blocks_info`. The returned array must be treated as read-only,
+ * and its contents should not be modified or freed.
+ *
+ * @note The returned array and the memory it points to should be freed by
+ * calling this function again or by calling `ansi_c_mem_track_deinit`.
+ */
+const MemoryBlock** ansi_c_mem_track_get_unfreed_blocks_info(size_t* count);
+
+/**
+ * @brief Logs information about unfreed memory blocks to a file or stdout.
+ *
+ * This function logs information about unfreed memory blocks to the specified file or to stdout if file_name is NULL.
+ *
+ * @param file_name The name of the file to write the log to, or NULL to write to stdout.
+ * @param blocks An array of unfreed MemoryBlock structs.
+ * @param count The number of unfreed MemoryBlock structs in the blocks array.
+ * @return True if the log was successfully written, false otherwise.
+ */
+bool ansi_c_mem_track_log_unfreed_blocks_info(const char* file_name, const MemoryBlock* blocks, size_t count);
 
 #endif /* ANSI_C_MEM_TRACK_H */

@@ -9,6 +9,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define SPRINTF sprintf_s
 #define FOPEN fopen_s
+#define strdup _strdup
 #else
 #define SPRINTF sprintf
 #define FOPEN fopen
@@ -28,6 +29,60 @@ MemoryInfo g_mem_info;
 static size_t free_calls = 0;
 static size_t next_object_id = 1;
 
+
+MemoryBlock* ansi_c_mem_track_copy_memory_block(const MemoryBlock* mb) {
+    if (!mb) {
+        return NULL;
+    }
+
+    // Allocate memory for the new MemoryBlock
+    MemoryBlock* new_mb = (MemoryBlock*)malloc(sizeof(MemoryBlock));
+    if (!new_mb) {
+        return NULL;
+    }
+
+    // Copy the data to the new MemoryBlock
+    new_mb->address = mb->address;
+    new_mb->comment = strdup(mb->comment);
+    new_mb->file_name = strdup(mb->file_name);
+    new_mb->is_allocated = mb->is_allocated;
+    new_mb->optional_object_id = mb->optional_object_id;
+    new_mb->size = mb->size;
+    new_mb->type = strdup(mb->type);
+
+    return new_mb;
+}
+
+void ansi_c_mem_track_init_memory_block(MemoryBlock* mb, void* address, size_t size, bool is_allocated, const char* file_name, const char* comment, const char* type, size_t optional_object_id) {
+    mb->address = address;
+    mb->size = size;
+    mb->is_allocated = is_allocated;
+    mb->file_name = file_name ? strdup(file_name) : NULL;
+    mb->comment = comment ? strdup(comment) : NULL;
+    mb->type = type ? strdup(type) : NULL;
+    mb->optional_object_id = optional_object_id;
+}
+
+void ansi_c_mem_track_free_memory_block(MemoryBlock* mb) {
+    if (!mb) {
+        return;
+    }
+
+    // Free the dynamically allocated memory in the MemoryBlock
+    if (mb->comment) {
+        free((void*)mb->comment);
+    };
+    if (mb->file_name) {
+        free((void*)mb->file_name);
+    }
+    if (mb->type) {
+        free((void*)mb->type);
+    }
+
+    // Free the MemoryBlock itself
+    free(mb);
+}
+
 bool ansi_c_mem_track_init(void) {
     if (g_mem_info.is_initialized) {
         return true;
@@ -37,14 +92,18 @@ bool ansi_c_mem_track_init(void) {
     if (!g_mem_info.blocks) {
         return false;
     }
+    for (size_t i = 0; i < DEFAULT_CAPACITY; ++i) {
+        ansi_c_mem_track_init_memory_block(&g_mem_info.blocks[i], NULL, 0, false, NULL, NULL, NULL, 0);
+    }
     g_mem_info.capacity = DEFAULT_CAPACITY;
     g_mem_info.total_size = 0;
     g_mem_info.size = 0;
     g_mem_info.total_memory_usage = 0;
     g_mem_info.memory_usage = 0;
     g_mem_info.total_freed_memory = 0;
-
     g_mem_info.is_initialized = true;
+    g_mem_info.get_unfreed_blocks_info_ptr = NULL;
+    g_mem_info.get_unfreed_blocks_info_size = 0;
     return true;
 }
 
@@ -58,9 +117,13 @@ bool ansi_c_mem_track_init(void) {
  */
 static void cleanup_memory(MemoryInfo* mem_info) {
     if (mem_info->blocks) {
+        for (size_t i=0; i < mem_info->size; ++i) {
+            ansi_c_mem_track_free_memory_block(&mem_info->blocks[i]);
+        }
         free(mem_info->blocks);
         mem_info->blocks = NULL;
     }
+
     mem_info->capacity = 0;
     mem_info->total_size = 0;
     mem_info->size = 0;
@@ -69,22 +132,30 @@ static void cleanup_memory(MemoryInfo* mem_info) {
     mem_info->total_freed_memory = 0;
 }
 
+void ansi_c_mem_track_free_unfreed_blocks_info() {
+    if (!g_mem_info.get_unfreed_blocks_info_ptr) {
+        return;
+    }
+
+    for (size_t i = 0; i < g_mem_info.get_unfreed_blocks_info_size; ++i) {
+        if (g_mem_info.get_unfreed_blocks_info_ptr[i]) {
+            ansi_c_mem_track_free_memory_block(g_mem_info.get_unfreed_blocks_info_ptr[i]);
+        }
+    }
+
+    free(g_mem_info.get_unfreed_blocks_info_ptr);
+    g_mem_info.get_unfreed_blocks_info_ptr = NULL;
+    g_mem_info.get_unfreed_blocks_info_size = 0;
+}
+
+
 void ansi_c_mem_track_deinit(void) {
     if (!g_mem_info.is_initialized || !g_mem_info.blocks) {
         return;
     }
-
+    ansi_c_mem_track_free_unfreed_blocks_info();
     for (size_t i = 0; i < g_mem_info.size; i++) {
-        if (g_mem_info.blocks[i].comment) {
-            free((void*)g_mem_info.blocks[i].comment);
-        }
-        if (g_mem_info.blocks[i].file_name) {
-            free((void*)g_mem_info.blocks[i].file_name);
-        }
-        if (g_mem_info.blocks[i].type) {
-            free((void*)g_mem_info.blocks[i].type);
-        }
-        g_mem_info.blocks[i].is_allocated = false;
+        ansi_c_mem_track_free_memory_block(&g_mem_info.blocks[i]);
     }
     cleanup_memory(&g_mem_info);
     g_mem_info.is_initialized = false;
@@ -204,10 +275,10 @@ bool ansi_c_mem_track_print_info(const char* file_name, const MemoryUsageInfo* m
     // Get the required size of the message buffer
     const char* formatstr= "[%s] [MEMORY] Memory usage information:\n"
         "                               Current memory usage: %lu bytes\n"
-        "                               Current allocations: %lu bytes\n"
+        "                               Current allocations: %lu\n"
         "                               Total memory usage: %lu bytes\n"
         "                               Total allocations: %lu\n"
-        "                               Total freed memory: %lu\n";
+        "                               Total freed memory: %lu bytes\n";
     size_t message_size = snprintf(NULL, 0, formatstr,
         timestamp, (unsigned long)mem_info->memory_usage, (unsigned long)mem_info->size,(unsigned long)mem_info->total_user_memory_usage, 
         (unsigned long)mem_info->total_size, (unsigned long)mem_info->total_freed_memory);
@@ -244,6 +315,7 @@ bool ansi_c_mem_track_print_info(const char* file_name, const MemoryUsageInfo* m
 void ansi_c_mem_track_free_block(void* ptr, size_t index) {
     MemoryBlock block = g_mem_info.blocks[index];
     free(ptr);
+    ptr = NULL;
     g_mem_info.memory_usage -= block.size;
     g_mem_info.total_freed_memory += block.size;
     g_mem_info.blocks[index].is_allocated = false;
@@ -300,20 +372,21 @@ void ansi_c_mem_track_cleanup_allocations(void) {
             g_mem_info.blocks[index] = g_mem_info.blocks[i];
             index++;
         }
-    }
+    }    
+    
+    g_mem_info.size = index;
+    
     if (index < DEFAULT_CAPACITY) {
         index = DEFAULT_CAPACITY;
     } 
     
-    g_mem_info.size = index;
-
-    if (g_mem_info.capacity > g_mem_info.size) {
-        MemoryBlock* new_blocks = (MemoryBlock*)realloc(g_mem_info.blocks, sizeof(MemoryBlock) * g_mem_info.size);
+    if (g_mem_info.capacity > index) {
+        MemoryBlock* new_blocks = (MemoryBlock*)realloc(g_mem_info.blocks, sizeof(MemoryBlock) * index);
         if (!new_blocks) {
             return;
         }
         g_mem_info.blocks = new_blocks;
-        g_mem_info.capacity = g_mem_info.size;
+        g_mem_info.capacity = index;
     }
 }
 
@@ -376,4 +449,132 @@ void ansi_c_mem_track_free_by_object_id(size_t optional_object_id) {
 size_t ansi_c_mem_track_get_next_object_id(void)
 {
     return next_object_id++;
+}
+
+/**
+ * @brief Searches for a memory block with the given pointer in the block_list.
+ *
+ * @param ptr A pointer to the memory block.
+ *
+ * @return A pointer to the found memory block, or NULL if not found.
+ */
+const MemoryBlock* find_block_by_ptr(void* ptr)
+{
+    for (size_t i = 0; i < g_mem_info.size; ++i) {
+        if (g_mem_info.blocks[i].address == ptr) {
+            return &g_mem_info.blocks[i];
+        }
+    }
+
+    return NULL;
+}
+
+const MemoryBlock* ansi_c_mem_track_get_block_info(const void* ptr) {
+    for (size_t i = 0; i < g_mem_info.size; ++i) {
+        if (g_mem_info.blocks[i].address == ptr) {
+            return &g_mem_info.blocks[i];
+        }
+    }
+    return NULL;
+}
+
+bool ansi_c_mem_track_log_block_info(const char* file_name, const MemoryBlock* block) {
+    FILE* output_file;
+
+    // Get the current time
+    time_t raw_time;
+    struct tm time_info;
+    time(&raw_time);
+    localtime_func(&raw_time, &time_info);
+
+    // Format the timestamp
+    char timestamp[20];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &time_info);
+
+    // Get the required size of the message buffer
+    const char* formatstr = "[%s] [MEMORY] Memory Block Information:\n"
+        "                               Address: 0x%lx\n"
+        "                               Size: %lu bytes\n"
+        "                               File: %s bytes\n"
+        "                               Comment: %s\n"
+        "                               Type: %s\n"
+        "                               Is allocated: %s\n"
+        "                               Object ID: %lu\n";
+    size_t message_size = snprintf(NULL, 0, formatstr,
+        timestamp, (uintptr_t)block->address, (unsigned long)block->size, block->file_name, block->comment, block->type, 
+        (block->is_allocated?"True":"False"), block->optional_object_id);
+
+    // Allocate the message buffer
+    char* message = (char*)malloc(message_size + 1);
+    if (!message) {
+        return false;
+    }
+
+    // Format the message
+    snprintf(message, message_size + 1, formatstr,
+        timestamp, (uintptr_t)block->address, (unsigned long)block->size, block->file_name, block->comment, block->type,
+        (block->is_allocated ? "True" : "False"), block->optional_object_id);
+
+    // Write the message to the file or to the standard output
+    if (file_name) {
+        if (FOPEN(&output_file, file_name, "a") != 0) {
+            return false;
+        }
+        fprintf(output_file, "%s", message);
+        fclose(output_file);
+    }
+    else {
+        printf("%s", message);
+    }
+
+    if (message) {
+        free(message);
+    }
+    return true;
+}
+
+const MemoryBlock** ansi_c_mem_track_get_unfreed_blocks_info(size_t* count)
+{
+    // Count the number of unfreed blocks
+    size_t unfreed_count = 0;
+    for (size_t i = 0; i < g_mem_info.size; ++i) {
+        if (g_mem_info.blocks[i].is_allocated) {
+            ++unfreed_count;
+        }
+    }
+
+    *count = 0;
+
+    // free if necessary
+    ansi_c_mem_track_free_unfreed_blocks_info();
+
+    // Allocate memory for the unfreed blocks array
+    g_mem_info.get_unfreed_blocks_info_ptr = (MemoryBlock**)malloc(sizeof(MemoryBlock) * unfreed_count);
+    if (!g_mem_info.get_unfreed_blocks_info_ptr) {
+        return NULL;
+    }
+
+    // Copy the unfreed blocks into the array
+    for (size_t i = 0; i < g_mem_info.size && g_mem_info.get_unfreed_blocks_info_size < unfreed_count; ++i) {
+        if (g_mem_info.blocks[i].is_allocated) {
+            MemoryBlock* mb_ptr=ansi_c_mem_track_copy_memory_block(&g_mem_info.blocks[i]);
+            if (mb_ptr) {
+                g_mem_info.get_unfreed_blocks_info_ptr[g_mem_info.get_unfreed_blocks_info_size++] = mb_ptr;
+                
+            } else {
+                return NULL;
+            }
+        }
+    }
+    *count = g_mem_info.get_unfreed_blocks_info_size;
+    return g_mem_info.get_unfreed_blocks_info_ptr;
+}
+
+bool ansi_c_mem_track_log_unfreed_blocks_info(const char* file_name, const MemoryBlock* blocks, size_t count)
+{
+    bool retval = true;
+    for (size_t i = 0; i < count && retval; ++i) {
+        retval=ansi_c_mem_track_log_block_info(file_name, &blocks[i]);
+    }
+    return retval;
 }

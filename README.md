@@ -102,7 +102,7 @@ int_ptr = (int*)ansi_c_mem_track_realloc(int_ptr, sizeof(int) * 10, __FILE__, __
 #### Notes
 This function should be used instead of realloc() to ensure proper tracking of memory allocations.
 
-### ansi_c_mem_track_free
+### `ansi_c_mem_track_free`
 Frees the memory block pointed to by the given pointer and tracks the deallocation with AnsiCMemTrack.
 
 #### Parameters
@@ -172,7 +172,7 @@ This function can be used to retrieve information about the current state of mem
 
 The `MemoryUsageInfo` struct is defined in the header file `ansi_c_mem_track.h`.
 
-### ansi_c_mem_track_print_info
+### `ansi_c_mem_track_print_info`
 Prints memory usage information to the specified output stream. The output can be customized by providing a MemoryUsageInfo structure that contains information about the memory usage.
 
 #### Parameters
@@ -211,7 +211,7 @@ ansi_c_mem_track_log_message(__FILE__, "Info", "Memory allocation succeeded", __
 #### Notes
 This function is used to log messages during memory allocation, deallocation, and tracking operations for debugging and diagnostic purposes.
 
-### ansi_c_mem_track_get_next_object_id
+### `ansi_c_mem_track_get_next_object_id`
 Returns the next available object ID. This function is used to generate unique object IDs for separate memory management instances.
 
 #### Return Value
@@ -225,6 +225,90 @@ size_t object_id = ansi_c_mem_track_get_next_object_id();
 #### Notes
 Users can call this function to obtain a unique object ID for their separate memory management instances.
 
+### `ansi_c_mem_track_get_block_info`
+
+Returns a pointer to the `MemoryBlock` structure associated with the memory block pointed to by `ptr`, or `NULL` if the memory block is not currently allocated. The `MemoryBlock` structure contains information about the memory block, including its size, file name and line number of the allocation, and an optional comment.
+
+#### Parameters
+
+- `ptr`: A pointer to the memory block.
+
+#### Return Value
+
+A pointer to the `MemoryBlock` structure associated with the memory block pointed to by `ptr`, or `NULL` if the memory block is not currently allocated.
+
+#### Example Usage
+
+```c
+char* ptr = (char*)ansi_c_mem_track_malloc(sizeof(char) * 10, __FILE__, "test_memory_leak() -> ptr memory allocation", "char(10)", 1);
+const MemoryBlock* block_info = ansi_c_mem_track_get_block_info(ptr);
+if (block_info != NULL) {
+    printf("Allocated memory block size: %d\n", block_info->size);
+    printf("Allocated memory block type: %s\n", block_info->type);
+}
+```
+
+### `ansi_c_mem_track_log_block_info`
+
+Logs information about the given memory block.
+
+#### Parameters
+
+* `file_name`: The name of the log file, or `NULL` to log to standard output.
+* `block`: A pointer to the `MemoryBlock` structure to log.
+
+#### Return Value
+Returns `true` if logging was successful, `false` otherwise.
+
+### `ansi_c_mem_track_get_unfreed_blocks_info`
+Gets an array of pointers to unfreed memory blocks.
+
+The returned array and the memory it points to are dynamically allocated and should be freed by calling this function again or by calling `ansi_c_mem_track_deinit`. The returned array must be treated as read-only, and its contents should not be modified or freed.
+
+#### Parameters
+* `count`: A pointer to a size_t variable that will receive the number of unfreed blocks. If there was an error, this will be set to 0.
+
+#### Return Value
+An array of pointers to unfreed memory blocks, or NULL if there was an error. 
+
+### `ansi_c_mem_track_log_unfreed_blocks_info`
+
+Logs information about the given unfreed memory blocks.
+
+This function logs information about the unfreed memory blocks passed in the blocks array, using the given file_name as the name of the log file. If file_name is NULL, the log is written to standard output. The count parameter specifies the number of memory blocks in the blocks array.
+
+#### Parameters
+* `file_name`: The name of the log file, or NULL to log to standard output.
+* `blocks`: An array of pointers to the unfreed memory blocks.
+* `count`: The number of memory blocks in the blocks array.
+
+#### Return Value
+This function returns true if logging was successful, false otherwise.
+
+#### Example Usage
+```c
+
+//...
+// Allocate some memory
+char* ptr1 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 10, __FILE__, "test_memory_free() -> ptr1 memory allocation", "char(10)", 1);
+char* ptr2 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 20, __FILE__, "test_memory_free() -> ptr2 memory allocation", "char(20)", 2);
+char* ptr3 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 30, __FILE__, "test_memory_free() -> ptr3 memory allocation", "char(30)", 3);
+
+// Free some memory
+ansi_c_mem_track_free(ptr1);
+ansi_c_mem_track_free(ptr2);
+
+// Log information about unfreed memory blocks
+size_t unfreed_count = 0;
+const MemoryBlock** unfreed_blocks = ansi_c_mem_track_get_unfreed_blocks_info(&unfreed_count);
+ansi_c_mem_track_log_unfreed_blocks_info(NULL, unfreed_blocks, unfreed_count);
+
+// Free the remaining memory and cleanup allocations
+ansi_c_mem_track_free(ptr3);
+ansi_c_mem_track_cleanup_allocations();
+//...
+
+```
 
 ### Examples
 

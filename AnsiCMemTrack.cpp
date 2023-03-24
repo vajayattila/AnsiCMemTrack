@@ -318,6 +318,46 @@ void test_ansi_c_mem_track_free_by_object_id() {
     ansi_c_mem_track_log_message(FILENAME, "Info", "End test_ansi_c_mem_track_free_by_object_id");
 }
 
+/**
+ * @brief Tests if all allocated memory blocks have been freed using `ansi_c_mem_track_log_unfreed_blocks_info`
+ * and logs information about them to `test.log`.
+ */
+void get_unfreed_blocks_info_test() {
+    MemoryUsageInfo mem_info;
+    ansi_c_mem_track_log_message(FILENAME, "Info", "Begin get_unfreed_blocks_info_test");
+
+    // Allocate some memory
+    ansi_c_mem_track_log_message(FILENAME, "Info", "Allocation");
+    char* ptr1 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 10, __FILE__, "test_memory_free() -> ptr1 memory allocation", "char(10)", 1);
+    char* ptr2 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 20, __FILE__, "test_memory_free() -> ptr2 memory allocation", "char(20)", 2);
+    char* ptr3 = (char*)ansi_c_mem_track_malloc(sizeof(char) * 30, __FILE__, "test_memory_free() -> ptr3 memory allocation", "char(30)", 3);
+    mem_info = ansi_c_mem_track_get_info();
+    ansi_c_mem_track_print_info(FILENAME, &mem_info);
+
+    // Free some memory
+    ansi_c_mem_track_log_message(FILENAME, "Info", "Free some memory");
+    ansi_c_mem_track_free(ptr1);
+    ansi_c_mem_track_free(ptr2);
+    mem_info = ansi_c_mem_track_get_info();
+    ansi_c_mem_track_print_info(FILENAME, &mem_info);
+
+    // Check for unfreed memory blocks
+    ansi_c_mem_track_log_message(FILENAME, "Info", "Check for unfreed memory blocks");
+    size_t info_array_size = 0;
+    const MemoryBlock** info_array=ansi_c_mem_track_get_unfreed_blocks_info(&info_array_size);
+    ansi_c_mem_track_log_unfreed_blocks_info(FILENAME, *info_array, info_array_size);
+    mem_info = ansi_c_mem_track_get_info();
+    ansi_c_mem_track_print_info(FILENAME, &mem_info);
+    ansi_c_mem_track_free(ptr3);
+
+    ansi_c_mem_track_log_message(FILENAME, "Info", "Cleanup allocations");
+    ansi_c_mem_track_cleanup_allocations();
+    mem_info = ansi_c_mem_track_get_info();
+    ansi_c_mem_track_print_info(FILENAME, &mem_info);
+
+    ansi_c_mem_track_log_message(FILENAME, "Info", "End get_unfreed_blocks_info_test");
+}
+
 
 int main()
 {
@@ -335,6 +375,8 @@ int main()
     ansi_c_mem_track_fragmentation_test(100000, 500);
     // Tests the ansi_c_mem_track_free_by_object_id function.
     test_ansi_c_mem_track_free_by_object_id();
+    // get_unfreed_blocks_info_test
+    get_unfreed_blocks_info_test();
 
     // deinitialize the ansi_c_mem_track library
     ansi_c_mem_track_log_message(FILENAME, "Info", "Deinitialized");
