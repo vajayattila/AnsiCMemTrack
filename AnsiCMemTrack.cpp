@@ -345,7 +345,7 @@ void get_unfreed_blocks_info_test() {
     ansi_c_mem_track_log_message(FILENAME, "Info", "Check for unfreed memory blocks");
     size_t info_array_size = 0;
     const MemoryBlock** info_array=ansi_c_mem_track_get_unfreed_blocks_info(&info_array_size);
-    ansi_c_mem_track_log_unfreed_blocks_info(FILENAME, *info_array, info_array_size);
+    ansi_c_mem_track_log_unfreed_blocks_info(FILENAME, info_array, info_array_size);
     mem_info = ansi_c_mem_track_get_info();
     ansi_c_mem_track_print_info(FILENAME, &mem_info);
     ansi_c_mem_track_free(ptr3);
