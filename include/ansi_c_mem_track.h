@@ -11,7 +11,7 @@
   *	@author Attila Vajay
   *	@email vajay.attila@gmail.com
   * @git https://github.com/vajayattila/AnsiCMemTrack.git
-  * @date 2023.03.23.-2023.03.28.
+  * @date 2023.03.23.-2023.03.30.
   * @version 1.0
   * @license MIT License
   * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
@@ -238,5 +238,12 @@ const MemoryBlock** ansi_c_mem_track_get_unfreed_blocks_info(size_t* count);
  * @return True if the log was successfully written, false otherwise.
  */
 bool ansi_c_mem_track_log_unfreed_blocks_info(const char* file_name, const MemoryBlock** blocks, size_t count);
+
+/**
+ * @brief Checks if the ansi_c_mem_track library has been initialized.
+ *
+ * @return true if the library has been initialized, false otherwise.
+ */
+bool ansi_c_mem_track_is_initialized(void);
 
 #endif /* ANSI_C_MEM_TRACK_H */

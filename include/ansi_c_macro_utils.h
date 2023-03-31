@@ -3,9 +3,9 @@
 
 #ifdef _MSC_VER
     #define STRCPY(dest, destsz, src) strcpy_s(dest, destsz, src)
-    #define STRDUP(dest, destsz, src) { \
+    #define STRDUP(dest, destsz, src, objid) { \
         size_t _sz = destsz + 1; \
-        dest = ansi_c_mem_track_malloc(_sz, __FILE__, __FUNCTION__, "char*", 0); \
+        dest = ansi_c_mem_track_malloc(_sz, __FILE__, __FUNCTION__, "char*", objid); \
         if(dest){ \
             strncpy_s((char*)dest, _sz, (const char*)src, destsz); \
         }\
@@ -25,9 +25,9 @@
     #define STRCPY(dest, destsz, src){ \
         STRNCPY(dest, destsz, src, strlen(src) + 1); \
     }
-    #define STRDUP(dest, destsz, src){ \
+    #define STRDUP(dest, destsz, src, objid){ \
         size_t _sz = strlen(src) + 1; \
-        dest = ansi_c_mem_track_malloc(_sz, __FILE__, __FUNCTION__, "char*", 0); \
+        dest = ansi_c_mem_track_malloc(_sz, __FILE__, __FUNCTION__, "char*", objid); \
         if (dest) { \
             STRNCPY(dest, destsz, src, _sz); \
         } \

@@ -376,6 +376,14 @@ int main() {
 }
 ```
 
+## ansi_c_mem_track_is_initialized
+Checks whether the memory tracking library is initialized or not.
+```c
+bool ansi_c_mem_track_is_initialized(void);
+```
+### Return
+Returns: true if the library is initialized, false otherwise. 
+
 ### Requirements
 * C compiler that supports C99 or later versions (e.g., GCC, Clang)
 * Optional: C11 support for building the test application (e.g., GCC, Clang) 

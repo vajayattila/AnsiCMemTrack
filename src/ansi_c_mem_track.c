@@ -581,3 +581,7 @@ bool ansi_c_mem_track_log_unfreed_blocks_info(const char* file_name, const Memor
     }
     return retval;
 }
+
+bool ansi_c_mem_track_is_initialized(void) {
+    return g_mem_info.is_initialized;
+}
